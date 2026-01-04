@@ -15,6 +15,7 @@ export type Category =
 
 export type SpendType = 'Need' | 'Want';
 export type PaymentMethod = 'UPI' | 'Cash';
+export type SavingsMode = 'Daily' | 'Monthly' | 'None';
 
 export interface Expense {
   id: string;
@@ -33,6 +34,10 @@ export interface UserState {
   expenses: Expense[];
   mode?: UserMode;
   isLoggedIn?: boolean;
+  monthlyAllowance?: number;
+  monthlySavingsGoal?: number;
+  dailySavingsGoal?: number;
+  savingsMode?: SavingsMode;
 }
 
 export type Tab = 'Today' | 'Insights' | 'Learn' | 'Profile';

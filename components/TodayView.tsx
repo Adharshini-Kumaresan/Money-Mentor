@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, ChevronRight, Plus, Lightbulb, ClipboardCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Lightbulb, ClipboardCheck, PiggyBank } from 'lucide-react';
 import { UserState, TimeBlock } from '../types';
 import { TIME_BLOCKS } from '../constants';
 import { formatCurrency, getISODate, getDisplayDate, getDisplayDayName } from '../utils';
@@ -66,7 +66,6 @@ const TodayView: React.FC<TodayViewProps> = ({ user, currentDate, setCurrentDate
     let insight = "Most spending was balanced.";
     if (wantsCount > dailyExpenses.length * 0.5) insight = "Wants made up a big part of today’s spends.";
 
-    // Find heaviest time block
     const blockSums = TIME_BLOCKS.map(tb => ({
       name: tb.name,
       sum: dailyExpenses.filter(e => e.timeBlock === tb.name).reduce((s, e) => s + e.amount, 0)
@@ -84,6 +83,8 @@ const TodayView: React.FC<TodayViewProps> = ({ user, currentDate, setCurrentDate
 
   const insight = getInsight();
   const reflection = getReflectionSummary();
+
+  const isDailySavingActive = user.savingsMode === 'Daily' && user.dailySavingsGoal && user.dailySavingsGoal > 0;
 
   return (
     <div className="p-5 flex flex-col space-y-6 pb-28 animate-in fade-in duration-500">
@@ -139,23 +140,37 @@ const TodayView: React.FC<TodayViewProps> = ({ user, currentDate, setCurrentDate
               </div>
             </div>
 
-            <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-3 bg-slate-100 rounded-full overflow-hidden relative">
               <div 
                 className={`h-full transition-all duration-700 rounded-full ${leftAmount < 0 ? 'bg-amber-400' : 'bg-emerald-400'}`}
                 style={{ width: `${progress}%` }}
               />
+              {isDailySavingActive && (
+                <div 
+                  className="absolute top-0 h-full border-l-2 border-dashed border-emerald-600/30"
+                  style={{ left: `${Math.max(0, 100 - (user.dailySavingsGoal! / safeLimit) * 100)}%` }}
+                />
+              )}
             </div>
 
-            <div className="text-center text-xs font-bold uppercase tracking-wide text-slate-500">
-              {leftAmount >= 0 ? (
-                <span>{formatCurrency(leftAmount)} remaining</span>
-              ) : (
-                <span className="text-amber-600">{formatCurrency(Math.abs(leftAmount))} over safe zone</span>
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wide">
+              <span className="text-slate-500">
+                {leftAmount >= 0 ? (
+                  <span>{formatCurrency(leftAmount)} remaining</span>
+                ) : (
+                  <span className="text-amber-600">{formatCurrency(Math.abs(leftAmount))} over safe zone</span>
+                )}
+              </span>
+              {isDailySavingActive && (
+                <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  <PiggyBank size={10} />
+                  {formatCurrency(user.dailySavingsGoal!)} saving goal
+                </span>
               )}
             </div>
           </div>
 
-          {/* Reflection Summary Card (Reflection Mode Only) */}
+          {/* Reflection Summary Card */}
           {reflection && (
             <div className="bg-slate-900 text-white rounded-[32px] p-6 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
               <div className="flex items-center gap-3">
@@ -177,7 +192,7 @@ const TodayView: React.FC<TodayViewProps> = ({ user, currentDate, setCurrentDate
             </div>
           )}
 
-          {/* Insight Card (Instant Mode Default behavior preserved) */}
+          {/* Insight Card */}
           {insight && user.mode === 'Instant Update' && (
             <div className="bg-blue-50/60 border border-blue-100/50 rounded-[32px] p-5 flex gap-4">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
@@ -244,7 +259,6 @@ const TodayView: React.FC<TodayViewProps> = ({ user, currentDate, setCurrentDate
             })}
           </div>
 
-          {/* Invisible Savings Message */}
           <div className="bg-slate-50/50 rounded-[32px] p-8 text-center border border-slate-100">
             {leftAmount > 0 ? (
               <div className="space-y-1">

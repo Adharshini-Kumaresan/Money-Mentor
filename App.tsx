@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Tab, Expense, UserState, TimeBlock, UserMode } from './types';
+import { Tab, Expense, UserState, TimeBlock, UserMode, SavingsMode } from './types';
 import { TABS } from './constants';
 import TodayView from './components/TodayView';
 import InsightsView from './components/InsightsView';
@@ -14,13 +14,22 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('Today');
   const [user, setUser] = useState<UserState>(() => {
     const saved = localStorage.getItem('moneymentor_user');
-    return saved ? JSON.parse(saved) : {
-      username: 'adharshini04',
-      memberSince: 'Jan 2026',
+    if (saved) return JSON.parse(saved);
+
+    const now = new Date();
+    const memberSince = now.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    
+    return {
+      username: 'User',
+      memberSince,
       safeSpendLimit: 300,
       expenses: [],
       mode: undefined,
-      isLoggedIn: false
+      isLoggedIn: false,
+      monthlyAllowance: 0,
+      monthlySavingsGoal: 0,
+      dailySavingsGoal: 0,
+      savingsMode: 'None'
     };
   });
 
@@ -56,13 +65,24 @@ const App: React.FC = () => {
       const leftAmount = safeLimit - totalSpent;
 
       let nudgeText = "";
-      if (leftAmount < 100 && leftAmount >= 0) {
-        nudgeText = `Only ${formatCurrency(leftAmount)} left today — just flagging it.`;
-      } else if (totalSpent >= safeLimit * 0.8 && totalSpent < safeLimit) {
-        nudgeText = `Heads up 👀 you’re getting close to today’s limit.`;
-      } else {
-        nudgeText = `${formatCurrency(Math.max(0, leftAmount))} left today. You’re good — plan easy.`;
+      
+      // Micro-saving nudge logic
+      if (user.savingsMode === 'Daily' && user.dailySavingsGoal && user.dailySavingsGoal > 0) {
+        if (leftAmount > 0 && leftAmount <= user.dailySavingsGoal + 50) {
+          nudgeText = `${formatCurrency(leftAmount)} left today — ${formatCurrency(user.dailySavingsGoal)} is your saving goal.`;
+        }
       }
+
+      if (!nudgeText) {
+        if (leftAmount < 100 && leftAmount >= 0) {
+          nudgeText = `Only ${formatCurrency(leftAmount)} left today — just flagging it.`;
+        } else if (totalSpent >= safeLimit * 0.8 && totalSpent < safeLimit) {
+          nudgeText = `Heads up 👀 you’re getting close to today’s limit.`;
+        } else {
+          nudgeText = `${formatCurrency(Math.max(0, leftAmount))} left today. You’re good — plan easy.`;
+        }
+      }
+      
       setNudge(nudgeText);
       setTimeout(() => setNudge(null), 4000);
     }
@@ -82,8 +102,29 @@ const App: React.FC = () => {
     setUser(prev => ({ ...prev, mode: newMode }));
   };
 
+  const updateAllowance = (allowance: number) => {
+    setUser(prev => ({ ...prev, monthlyAllowance: allowance }));
+  };
+
+  const updateSavingsGoal = (goal: number, type: 'Monthly' | 'Daily') => {
+    if (type === 'Monthly') {
+      setUser(prev => ({ ...prev, monthlySavingsGoal: goal }));
+    } else {
+      setUser(prev => ({ ...prev, dailySavingsGoal: goal }));
+    }
+  };
+
+  const updateSavingsMode = (mode: SavingsMode) => {
+    setUser(prev => ({ ...prev, savingsMode: mode }));
+  };
+
   const handleLogin = () => {
     setUser(prev => ({ ...prev, isLoggedIn: true }));
+  };
+
+  const handleLogout = () => {
+    setUser(prev => ({ ...prev, isLoggedIn: false }));
+    setActiveTab('Today');
   };
 
   const handleModeSelection = (mode: UserMode) => {
@@ -170,6 +211,10 @@ const App: React.FC = () => {
             onClearExpenses={clearExpenses}
             onUpdateLimit={updateLimit}
             onUpdateMode={updateMode}
+            onLogout={handleLogout}
+            onUpdateAllowance={updateAllowance}
+            onUpdateSavingsGoal={updateSavingsGoal}
+            onUpdateSavingsMode={updateSavingsMode}
           />
         );
       default:
@@ -179,12 +224,10 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-white overflow-hidden relative border-x border-gray-100 shadow-xl">
-      {/* Scrollable Content Area */}
       <main className="flex-1 overflow-y-auto pb-24 custom-scrollbar">
         {renderView()}
       </main>
 
-      {/* Instant Nudge Toast */}
       {nudge && (
         <div className="fixed top-12 left-1/2 -translate-x-1/2 w-[85%] max-w-sm z-[100] animate-in slide-in-from-top-4 duration-500">
           <div className="bg-slate-900 text-white p-5 rounded-[24px] shadow-2xl flex items-center gap-4 border border-white/10">
@@ -196,7 +239,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 flex items-center justify-around py-2 px-4 z-40">
         {TABS.map((tab) => (
           <button
@@ -212,7 +254,6 @@ const App: React.FC = () => {
         ))}
       </nav>
 
-      {/* Log Spend Modal */}
       {isModalOpen && (
         <AddSpendModal 
           onClose={() => setIsModalOpen(false)} 
